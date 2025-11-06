@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   photos: string[];
@@ -41,48 +42,50 @@ export default function Gallery({ photos }: Props) {
         </button>
       ))}
 
-      {openIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center"
-          onClick={() => setOpenIndex(null)}
-        >
-          <div className="relative max-w-[90vw] max-h-[90vh] w-auto h-auto" onClick={(e) => e.stopPropagation()}>
-            <Image
-              src={photos[openIndex]}
-              alt={`Teneriffa Bild ${openIndex + 1} groß`}
-              width={1600}
-              height={900}
-              className="max-h-[90vh] w-auto object-contain"
-              referrerPolicy="no-referrer"
-            />
-            <button
-              className="absolute top-3 right-3 rounded bg-black/60 px-3 py-1 text-sm text-white hover:bg-black/70"
-              onClick={() => setOpenIndex(null)}
-              aria-label="Schließen"
-            >
-              Schließen
-            </button>
-            <div className="absolute inset-y-0 left-0 flex items-center">
+      {openIndex !== null &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center"
+            onClick={() => setOpenIndex(null)}
+          >
+            <div className="relative max-w-[90vw] max-h-[90vh] w-auto h-auto" onClick={(e) => e.stopPropagation()}>
+              <Image
+                src={photos[openIndex]}
+                alt={`Teneriffa Bild ${openIndex + 1} groß`}
+                width={1600}
+                height={900}
+                className="max-h-[90vh] w-auto object-contain"
+                referrerPolicy="no-referrer"
+              />
               <button
-                className="rounded bg-black/60 px-3 py-2 text-white hover:bg-black/70"
-                onClick={() => setOpenIndex((i) => (i === null ? null : (i - 1 + photos.length) % photos.length))}
-                aria-label="Vorheriges Bild"
+                className="absolute top-3 right-3 rounded bg-black/60 px-3 py-1 text-sm text-white hover:bg-black/70"
+                onClick={() => setOpenIndex(null)}
+                aria-label="Schließen"
               >
-                ◀
+                Schließen
               </button>
+              <div className="absolute inset-y-0 left-0 flex items-center">
+                <button
+                  className="rounded bg-black/60 px-3 py-2 text-white hover:bg-black/70"
+                  onClick={() => setOpenIndex((i) => (i === null ? null : (i - 1 + photos.length) % photos.length))}
+                  aria-label="Vorheriges Bild"
+                >
+                  ◀
+                </button>
+              </div>
+              <div className="absolute inset-y-0 right-0 flex items-center">
+                <button
+                  className="rounded bg-black/60 px-3 py-2 text-white hover:bg-black/70"
+                  onClick={() => setOpenIndex((i) => (i === null ? null : (i + 1) % photos.length))}
+                  aria-label="Nächstes Bild"
+                >
+                  ▶
+                </button>
+              </div>
             </div>
-            <div className="absolute inset-y-0 right-0 flex items-center">
-              <button
-                className="rounded bg-black/60 px-3 py-2 text-white hover:bg-black/70"
-                onClick={() => setOpenIndex((i) => (i === null ? null : (i + 1) % photos.length))}
-                aria-label="Nächstes Bild"
-              >
-                ▶
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

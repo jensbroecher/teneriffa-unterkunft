@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* Etwas größere Grundschrift für bessere Lesbarkeit */
+html {
+  font-size: 17px; /* Standard ist 16px; leicht vergrößert */
+}
+
+body {
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  background-image: url('/seitenhintergrund/Haus%20bei%20Sonnenuntergang.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* React Calendar – bessere Lesbarkeit auf Glas-Hintergrund */
+.react-calendar {
+  background-color: transparent !important;
+  color: #111 !important;
+}
+.react-calendar button {
+  color: #111 !important;
+}
+.react-calendar__navigation button:hover,
+.react-calendar__navigation button:focus {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+.react-calendar__tile {
+  color: #111 !important;
+}
+.react-calendar__tile--active {
+  background-color: rgba(16, 185, 129, 0.85) !important; /* emerald */
+  color: #fff !important;
+}
+.react-calendar__tile--now {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+.react-calendar__tile--disabled {
+  color: #8a8a8a !important;
+  background-color: rgba(255, 255, 255, 0.4) !important;
+}

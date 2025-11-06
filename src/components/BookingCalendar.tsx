@@ -1,0 +1,237 @@
+"use client";
+import React, { useEffect, useMemo, useState } from "react";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import { addDays, eachDayOfInterval, isWithinInterval } from "date-fns";
+
+type Range = { start: string; end: string }; // ISO strings
+
+function toDate(value: string) {
+  return new Date(value);
+}
+
+function normalizeRange(range: [Date, Date]) {
+  const [start, end] = range;
+  const s = start < end ? start : end;
+  const e = start < end ? end : start;
+  return [s, e] as [Date, Date];
+}
+
+export default function BookingCalendar() {
+  const [selection, setSelection] = useState<Date | [Date, Date] | null>(null);
+  const [reservations, setReservations] = useState<Range[]>([]);
+  const [customerName, setCustomerName] = useState("");
+  const [persons, setPersons] = useState<number>(2);
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const PRICING = {
+    basePerNight: 85, // €
+    includedPersons: 2,
+    extraPersonPerNight: 15, // € ab Person 3
+    cleaningFee: 45, // € pauschal
+  } as const;
+
+  const eur = (v: number) =>
+    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(v);
+
+  function computeCost(s: Date, e: Date) {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const nights = Math.max(1, Math.round((e.getTime() - s.getTime()) / msPerDay));
+    const extraPersons = Math.max(0, persons - PRICING.includedPersons);
+    const perNight = PRICING.basePerNight + extraPersons * PRICING.extraPersonPerNight;
+    const total = nights * perNight + PRICING.cleaningFee;
+    return { nights, perNight, total };
+  }
+
+  useEffect(() => {
+    const raw = localStorage.getItem("reservations");
+    if (raw) {
+      try {
+        setReservations(JSON.parse(raw));
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("reservations", JSON.stringify(reservations));
+  }, [reservations]);
+
+  const reservedDates = useMemo(() => {
+    return reservations.flatMap((r) =>
+      eachDayOfInterval({ start: toDate(r.start), end: toDate(r.end) })
+    );
+  }, [reservations]);
+
+  const tileDisabled = ({ date }: { date: Date }) => {
+    return reservedDates.some((d) => d.toDateString() === date.toDateString());
+  };
+
+  const addReservation = () => {
+    if (Array.isArray(selection)) {
+      if (!customerName.trim()) return alert("Bitte geben Sie Ihren Namen an.");
+      if (!persons || persons < 1) return alert("Bitte geben Sie die Anzahl der Personen an.");
+      if (!phone.trim() && !email.trim()) return alert("Bitte geben Sie Telefonnummer oder E‑Mail an.");
+      const [s, e] = normalizeRange(selection);
+      // Prevent overlap
+      const overlaps = reservations.some((r) =>
+        isWithinInterval(s, { start: toDate(r.start), end: toDate(r.end) }) ||
+        isWithinInterval(e, { start: toDate(r.start), end: toDate(r.end) })
+      );
+      if (overlaps) return alert("Der Zeitraum überschneidet sich mit bestehenden Buchungen.");
+      setStatus("sending");
+      setErrorMsg(null);
+      const { nights, perNight, total } = computeCost(s, e);
+      fetch("/api/booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: customerName,
+          email,
+          phone,
+          persons,
+          start: s.toISOString(),
+          end: e.toISOString(),
+          nights,
+          perNight,
+          total,
+        }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Fehler beim Senden der Buchungsanfrage");
+          setReservations([...reservations, { start: s.toISOString(), end: addDays(e, 0).toISOString() }]);
+          setSelection(null);
+          setStatus("sent");
+        })
+        .catch((err) => {
+          setStatus("error");
+          setErrorMsg(err?.message ?? "Unbekannter Fehler");
+        });
+    }
+  };
+
+  const clearReservations = () => {
+    if (confirm("Alle Reservierungen entfernen?")) setReservations([]);
+  };
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1">
+          <span className="text-sm text-zinc-600">Ihr Name</span>
+          <input
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="rounded border border-white/40 bg-white/70 p-2 text-zinc-900 placeholder:text-zinc-600"
+            placeholder="Name des Buchenden"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm text-zinc-600">Personen</span>
+          <input
+            type="number"
+            min={1}
+            value={persons}
+            onChange={(e) => setPersons(parseInt(e.target.value || "1", 10))}
+            className="rounded border border-white/40 bg-white/70 p-2 text-zinc-900"
+            placeholder="Anzahl Personen"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm text-zinc-600">Telefonnummer</span>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="rounded border border-white/40 bg-white/70 p-2 text-zinc-900 placeholder:text-zinc-600"
+            placeholder="Ihre Telefonnummer"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm text-zinc-600">E‑Mail</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="rounded border border-white/40 bg-white/70 p-2 text-zinc-900 placeholder:text-zinc-600"
+            placeholder="ihre@mailadresse.de"
+          />
+        </label>
+      </div>
+      <Calendar
+        selectRange
+        onChange={(v) => setSelection(v as any)}
+        value={selection as any}
+        tileDisabled={tileDisabled as any}
+        locale="de-DE"
+        className="rounded border border-white/30 bg-transparent p-2 text-zinc-900"
+      />
+      <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-lg p-4 text-sm text-zinc-800 shadow-md">
+        <h3 className="mb-2 text-base font-semibold">Preisliste</h3>
+        <ul className="list-disc pl-5">
+          <li>Grundpreis: {eur(PRICING.basePerNight)} pro Nacht (inkl. {PRICING.includedPersons} Personen)</li>
+          <li>Zusatzperson: +{eur(PRICING.extraPersonPerNight)} pro Nacht ab Person {PRICING.includedPersons + 1}</li>
+          <li>Endreinigung: {eur(PRICING.cleaningFee)} einmalig</li>
+        </ul>
+      </div>
+      {Array.isArray(selection) && (
+        (() => {
+          const [s, e] = normalizeRange(selection);
+          const msPerDay = 24 * 60 * 60 * 1000;
+          const nights = Math.max(1, Math.round((e.getTime() - s.getTime()) / msPerDay));
+          const extraPersons = Math.max(0, persons - PRICING.includedPersons);
+          const perNight = PRICING.basePerNight + extraPersons * PRICING.extraPersonPerNight;
+          const total = nights * perNight + PRICING.cleaningFee;
+          return (
+            <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-lg p-4 text-sm text-zinc-800 shadow-md">
+              <h3 className="mb-2 text-base font-semibold">Kostenübersicht</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <span>Nächte</span>
+                <span className="text-right">{nights}</span>
+                <span>Personen</span>
+                <span className="text-right">{persons}</span>
+                <span>Preis pro Nacht</span>
+                <span className="text-right">{eur(perNight)}</span>
+                <span>Endreinigung</span>
+                <span className="text-right">{eur(PRICING.cleaningFee)}</span>
+                <span className="font-semibold">Gesamtkosten</span>
+                <span className="text-right font-semibold">{eur(total)}</span>
+              </div>
+            </div>
+          );
+        })()
+      )}
+      <div className="flex gap-2">
+        <button
+          onClick={addReservation}
+          className="rounded bg-emerald-600 px-4 py-2 text-white disabled:bg-emerald-300"
+          disabled={!Array.isArray(selection) || status === "sending"}
+        >
+          {status === "sending" ? "Wird gesendet…" : "Zeitraum buchen"}
+        </button>
+        <button onClick={clearReservations} className="rounded border border-white/40 bg-white/70 px-4 py-2 text-zinc-900 hover:bg-white/80">
+          Reservierungen löschen
+        </button>
+      </div>
+      {status === "sent" && (
+        <div className="text-emerald-700">Buchungsanfrage gesendet!</div>
+      )}
+      {status === "error" && (
+        <div className="text-red-600">Fehler: {errorMsg}</div>
+      )}
+      <div className="rounded border border-zinc-200 p-4">
+        <h3 className="font-semibold">Bestehende Reservierungen</h3>
+        <ul className="mt-2 list-disc pl-5 text-sm text-zinc-700">
+          {reservations.length === 0 && <li>Keine Reservierungen vorhanden.</li>}
+          {reservations.map((r, i) => (
+            <li key={i}>
+              {toDate(r.start).toLocaleDateString()} – {toDate(r.end).toLocaleDateString()}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}

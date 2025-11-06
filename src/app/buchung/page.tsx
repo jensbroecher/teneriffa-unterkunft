@@ -8,7 +8,7 @@ export default function BuchungPage() {
         <h1 className="text-2xl font-semibold">Buchungskalender</h1>
         <ContentBlock
           id="buchung-hinweis"
-          defaultText="Wählen Sie Ihren gewünschten Zeitraum aus. Reservierte Tage sind deaktiviert. Diese Demo speichert Buchungen lokal im Browser. Für echte Buchungen kontaktieren Sie uns bitte über das Formular."
+          defaultText="Wählen Sie Ihren gewünschten Zeitraum aus. Rot markierte Tage sind nicht verfügbar und nicht auswählbar. Diese Demo speichert Buchungen lokal im Browser. Für echte Buchungen kontaktieren Sie uns bitte über das Formular."
           className="mt-2 text-zinc-700"
         />
       </div>

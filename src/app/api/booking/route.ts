@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 
 export async function POST(req: NextRequest) {
   const payload = await req.json();
@@ -61,6 +63,23 @@ export async function POST(req: NextRequest) {
     }
   } else {
     console.log("BOOKING REQUEST (no mail configured):", payload);
+  }
+
+  // Persist booking to server JSON file for admin area
+  try {
+    const filePath = path.join(process.cwd(), "data", "bookings.json");
+    try {
+      await fs.access(filePath);
+    } catch {
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, "[]", "utf-8");
+    }
+    const raw = await fs.readFile(filePath, "utf-8");
+    const list = (() => { try { return JSON.parse(raw); } catch { return []; } })();
+    list.push({ name, email, phone, persons, start, end });
+    await fs.writeFile(filePath, JSON.stringify(list, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Persist booking failed:", err);
   }
 
   return NextResponse.json({ ok: true });

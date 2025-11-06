@@ -7,6 +7,7 @@ type EditModeContextValue = {
   setEditMode: (v: boolean) => void;
   isAuthenticated: boolean;
   authenticate: (password: string) => Promise<boolean>;
+  logout: () => void;
 };
 
 const EditModeContext = createContext<EditModeContextValue | undefined>(
@@ -50,8 +51,17 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function logout() {
+    try {
+      localStorage.removeItem("edit-auth");
+      localStorage.setItem("edit-mode", "false");
+    } catch {}
+    setIsAuthenticated(false);
+    setEditMode(false);
+  }
+
   return (
-    <EditModeContext.Provider value={{ editMode, toggle, setEditMode, isAuthenticated, authenticate }}>
+    <EditModeContext.Provider value={{ editMode, toggle, setEditMode, isAuthenticated, authenticate, logout }}>
       {children}
     </EditModeContext.Provider>
   );

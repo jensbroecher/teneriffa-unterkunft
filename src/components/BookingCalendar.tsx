@@ -20,6 +20,7 @@ function normalizeRange(range: [Date, Date]) {
 export default function BookingCalendar() {
   const [selection, setSelection] = useState<Date | [Date, Date] | null>(null);
   const [reservations, setReservations] = useState<Range[]>([]);
+  const [unavailable, setUnavailable] = useState<Range[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [persons, setPersons] = useState<number>(2);
   const [phone, setPhone] = useState("");
@@ -27,12 +28,13 @@ export default function BookingCalendar() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const PRICING = {
-    basePerNight: 85, // €
+  const DEFAULT_PRICING = {
+    basePerNight: 85,
     includedPersons: 2,
-    extraPersonPerNight: 15, // € ab Person 3
-    cleaningFee: 45, // € pauschal
+    extraPersonPerNight: 15,
+    cleaningFee: 45,
   } as const;
+  const [pricing, setPricing] = useState(DEFAULT_PRICING);
 
   const eur = (v: number) =>
     new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(v);
@@ -40,9 +42,9 @@ export default function BookingCalendar() {
   function computeCost(s: Date, e: Date) {
     const msPerDay = 24 * 60 * 60 * 1000;
     const nights = Math.max(1, Math.round((e.getTime() - s.getTime()) / msPerDay));
-    const extraPersons = Math.max(0, persons - PRICING.includedPersons);
-    const perNight = PRICING.basePerNight + extraPersons * PRICING.extraPersonPerNight;
-    const total = nights * perNight + PRICING.cleaningFee;
+    const extraPersons = Math.max(0, persons - pricing.includedPersons);
+    const perNight = pricing.basePerNight + extraPersons * pricing.extraPersonPerNight;
+    const total = nights * perNight + pricing.cleaningFee;
     return { nights, perNight, total };
   }
 
@@ -53,6 +55,17 @@ export default function BookingCalendar() {
         setReservations(JSON.parse(raw));
       } catch {}
     }
+    // Fetch unavailable dates from server JSON
+    fetch("/api/admin/unavailable")
+      .then((r) => r.json())
+      .then((d) => setUnavailable(d?.unavailable ?? []))
+      .catch(() => {});
+    fetch("/api/admin/pricing")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.pricing) setPricing(d.pricing);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -65,8 +78,24 @@ export default function BookingCalendar() {
     );
   }, [reservations]);
 
+  const unavailableDates = useMemo(() => {
+    return unavailable.flatMap((r) =>
+      eachDayOfInterval({ start: toDate(r.start), end: toDate(r.end) })
+    );
+  }, [unavailable]);
+
   const tileDisabled = ({ date }: { date: Date }) => {
-    return reservedDates.some((d) => d.toDateString() === date.toDateString());
+    const dstr = date.toDateString();
+    return (
+      reservedDates.some((d) => d.toDateString() === dstr) ||
+      unavailableDates.some((d) => d.toDateString() === dstr)
+    );
+  };
+
+  const tileClassName = ({ date }: { date: Date }) => {
+    const dstr = date.toDateString();
+    if (unavailableDates.some((d) => d.toDateString() === dstr)) return "unavailable";
+    return undefined as any;
   };
 
   const addReservation = () => {
@@ -102,6 +131,13 @@ export default function BookingCalendar() {
         .then((res) => {
           if (!res.ok) throw new Error("Fehler beim Senden der Buchungsanfrage");
           setReservations([...reservations, { start: s.toISOString(), end: addDays(e, 0).toISOString() }]);
+          // Persist booking details for admin view
+          try {
+            const raw = localStorage.getItem("bookings");
+            const list = raw ? JSON.parse(raw) : [];
+            list.push({ name: customerName, email, phone, persons, start: s.toISOString(), end: e.toISOString() });
+            localStorage.setItem("bookings", JSON.stringify(list));
+          } catch {}
           setSelection(null);
           setStatus("sent");
         })
@@ -165,15 +201,16 @@ export default function BookingCalendar() {
         onChange={(v) => setSelection(v as any)}
         value={selection as any}
         tileDisabled={tileDisabled as any}
+        tileClassName={tileClassName as any}
         locale="de-DE"
         className="rounded border border-white/30 bg-transparent p-2 text-zinc-900"
       />
       <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-lg p-4 text-sm text-zinc-800 shadow-md">
         <h3 className="mb-2 text-base font-semibold">Preisliste</h3>
         <ul className="list-disc pl-5">
-          <li>Grundpreis: {eur(PRICING.basePerNight)} pro Nacht (inkl. {PRICING.includedPersons} Personen)</li>
-          <li>Zusatzperson: +{eur(PRICING.extraPersonPerNight)} pro Nacht ab Person {PRICING.includedPersons + 1}</li>
-          <li>Endreinigung: {eur(PRICING.cleaningFee)} einmalig</li>
+          <li>Grundpreis: {eur(pricing.basePerNight)} pro Nacht (inkl. {pricing.includedPersons} Personen)</li>
+          <li>Zusatzperson: +{eur(pricing.extraPersonPerNight)} pro Nacht ab Person {pricing.includedPersons + 1}</li>
+          <li>Endreinigung: {eur(pricing.cleaningFee)} einmalig</li>
         </ul>
       </div>
       {Array.isArray(selection) && (
@@ -181,9 +218,9 @@ export default function BookingCalendar() {
           const [s, e] = normalizeRange(selection);
           const msPerDay = 24 * 60 * 60 * 1000;
           const nights = Math.max(1, Math.round((e.getTime() - s.getTime()) / msPerDay));
-          const extraPersons = Math.max(0, persons - PRICING.includedPersons);
-          const perNight = PRICING.basePerNight + extraPersons * PRICING.extraPersonPerNight;
-          const total = nights * perNight + PRICING.cleaningFee;
+          const extraPersons = Math.max(0, persons - pricing.includedPersons);
+          const perNight = pricing.basePerNight + extraPersons * pricing.extraPersonPerNight;
+          const total = nights * perNight + pricing.cleaningFee;
           return (
             <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-lg p-4 text-sm text-zinc-800 shadow-md">
               <h3 className="mb-2 text-base font-semibold">Kostenübersicht</h3>
@@ -195,7 +232,7 @@ export default function BookingCalendar() {
                 <span>Preis pro Nacht</span>
                 <span className="text-right">{eur(perNight)}</span>
                 <span>Endreinigung</span>
-                <span className="text-right">{eur(PRICING.cleaningFee)}</span>
+                <span className="text-right">{eur(pricing.cleaningFee)}</span>
                 <span className="font-semibold">Gesamtkosten</span>
                 <span className="text-right font-semibold">{eur(total)}</span>
               </div>
@@ -203,10 +240,14 @@ export default function BookingCalendar() {
           );
         })()
       )}
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
+        <div className="text-sm text-zinc-800">
+          <span className="inline-block rounded bg-red-600 px-2 py-1 text-white mr-2">Rot</span>
+          bedeutet: nicht verfügbar
+        </div>
         <button
           onClick={addReservation}
-          className="rounded bg-emerald-600 px-4 py-2 text-white disabled:bg-emerald-300"
+          className="rounded bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-white font-semibold shadow-md disabled:bg-emerald-300"
           disabled={!Array.isArray(selection) || status === "sending"}
         >
           {status === "sending" ? "Wird gesendet…" : "Zeitraum buchen"}

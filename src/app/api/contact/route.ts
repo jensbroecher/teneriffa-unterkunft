@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 
 export async function POST(req: NextRequest) {
   const { name, email, message } = await req.json();
@@ -6,35 +8,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const transportEnabled = !!process.env.EMAIL_HOST;
-
-  if (transportEnabled) {
-    const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT ?? 587),
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const to = process.env.EMAIL_TO ?? process.env.EMAIL_USER;
+  // Persist contact to server JSON (no email sending)
+  try {
+    const filePath = path.join(process.cwd(), "data", "contacts.json");
     try {
-      await transporter.sendMail({
-        from: `Casa Tenerife <${process.env.EMAIL_USER}>`,
-        to,
-        replyTo: email,
-        subject: `Kontaktanfrage von ${name}`,
-        text: message,
-      });
-    } catch (err) {
-      console.error("Mail send error:", err);
-      return NextResponse.json({ error: "Mail send failed" }, { status: 500 });
+      await fs.access(filePath);
+    } catch {
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, "[]", "utf-8");
     }
-  } else {
-    console.log("CONTACT MESSAGE (no mail configured):", { name, email, message });
+    const raw = await fs.readFile(filePath, "utf-8");
+    const list = (() => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    })();
+    list.push({ name, email, message, date: new Date().toISOString() });
+    await fs.writeFile(filePath, JSON.stringify(list, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Persist contact failed:", err);
   }
 
   return NextResponse.json({ ok: true });

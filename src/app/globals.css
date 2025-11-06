@@ -53,3 +53,10 @@ body {
   color: #8a8a8a !important;
   background-color: rgba(255, 255, 255, 0.4) !important;
 }
+
+/* Unverfügbare Tage – Admin setzt diese, für Besucher rot markiert */
+.react-calendar__tile.unavailable,
+.react-calendar__tile--disabled.unavailable {
+  background-color: rgba(220, 38, 38, 0.85) !important; /* red-600 */
+  color: #fff !important;
+}

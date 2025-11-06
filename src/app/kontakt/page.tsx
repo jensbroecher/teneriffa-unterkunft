@@ -81,7 +81,7 @@ export default function KontaktPage() {
         </div>
       </form>
       <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-lg p-4 text-sm text-zinc-700 shadow-md">
-        Hinweis: Ohne Mail‑Konfiguration wird die Nachricht nur serverseitig geloggt.
+        Hinweis: Ihre Nachricht wird serverseitig als JSON gespeichert und im Adminbereich angezeigt.
       </div>
     </div>
   );

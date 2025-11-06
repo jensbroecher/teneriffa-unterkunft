@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 type Booking = {
   name: string;
@@ -11,28 +10,23 @@ type Booking = {
   end: string;
 };
 
-const FILE_PATH = path.join(process.cwd(), "data", "bookings.json");
-
-async function ensureFile() {
-  try {
-    await fs.access(FILE_PATH);
-  } catch {
-    await fs.mkdir(path.dirname(FILE_PATH), { recursive: true });
-    await fs.writeFile(FILE_PATH, "[]", "utf-8");
-  }
-}
-
-async function readList(): Promise<Booking[]> {
-  await ensureFile();
-  const raw = await fs.readFile(FILE_PATH, "utf-8");
-  try {
-    return JSON.parse(raw) as Booking[];
-  } catch {
-    return [];
-  }
-}
-
 export async function GET() {
-  const list = await readList();
+  const sb = supabaseServer();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("name,email,phone,persons,start,end")
+    .order("start", { ascending: false });
+  if (error) {
+    console.error("Supabase GET bookings error:", error);
+    return NextResponse.json({ bookings: [] });
+  }
+  const list: Booking[] = (data ?? []).map((r: any) => ({
+    name: r.name,
+    email: r.email ?? undefined,
+    phone: r.phone ?? undefined,
+    persons: Number(r.persons),
+    start: new Date(r.start).toISOString(),
+    end: new Date(r.end).toISOString(),
+  }));
   return NextResponse.json({ bookings: list });
 }

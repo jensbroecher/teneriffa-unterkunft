@@ -4,6 +4,7 @@ import "react-calendar/dist/Calendar.css";
 import { useEffect, useMemo, useState } from "react";
 import { eachDayOfInterval } from "date-fns";
 import { useEditMode } from "@/components/EditModeContext";
+import ModalDialog from "@/components/ModalDialog";
 
 type Range = { start: string; end: string };
 type Booking = {
@@ -39,6 +40,7 @@ export default function AdminPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [pricing, setPricing] = useState<Pricing | null>(null);
+  const [dialog, setDialog] = useState<{ open: boolean; kind?: "info" | "success" | "error" | "warning"; title?: string; message?: string }>({ open: false, kind: "info" });
 
   useEffect(() => {
     // Load unavailable from server JSON
@@ -121,7 +123,12 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error("Speichern fehlgeschlagen");
     } catch (e) {
-      alert((e as any)?.message || "Fehler beim Speichern");
+      setDialog({
+        open: true,
+        kind: "error",
+        title: "Fehler beim Speichern",
+        message: (e as any)?.message || "Bitte später erneut versuchen.",
+      });
     }
   };
 
@@ -306,6 +313,13 @@ export default function AdminPage() {
           </ul>
         </div>
       </div>
+      <ModalDialog
+        open={dialog.open}
+        kind={dialog.kind as any}
+        title={dialog.title}
+        message={dialog.message}
+        onClose={() => setDialog({ open: false })}
+      />
     </div>
   );
 }

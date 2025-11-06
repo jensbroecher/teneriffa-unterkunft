@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { EditModeProvider } from "@/components/EditModeContext";
+import PageTransition from "../components/PageTransition";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased text-zinc-900 min-h-screen flex flex-col`}>
         <EditModeProvider>
           <Navbar />
-          <main className="flex-1 mx-auto max-w-6xl mt-6 px-4 py-8">{children}</main>
+          <main className="flex-1 mx-auto max-w-6xl mt-6 px-4 py-8">
+            <PageTransition>{children}</PageTransition>
+          </main>
           <Footer />
         </EditModeProvider>
       </body>

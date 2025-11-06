@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { addDays, eachDayOfInterval, isWithinInterval } from "date-fns";
+import ModalDialog from "@/components/ModalDialog";
 
 type Range = { start: string; end: string }; // ISO strings
 
@@ -27,6 +28,8 @@ export default function BookingCalendar() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<{ open: boolean; kind?: "info" | "success" | "error" | "warning"; title?: string; message?: string }>({ open: false, kind: "info" });
+  const [confirm, setConfirm] = useState<{ open: boolean; title?: string; message?: string }>({ open: false });
 
   const DEFAULT_PRICING = {
     basePerNight: 85,
@@ -100,16 +103,28 @@ export default function BookingCalendar() {
 
   const addReservation = () => {
     if (Array.isArray(selection)) {
-      if (!customerName.trim()) return alert("Bitte geben Sie Ihren Namen an.");
-      if (!persons || persons < 1) return alert("Bitte geben Sie die Anzahl der Personen an.");
-      if (!phone.trim() && !email.trim()) return alert("Bitte geben Sie Telefonnummer oder E‑Mail an.");
+      if (!customerName.trim()) {
+        setDialog({ open: true, kind: "warning", title: "Angaben fehlen", message: "Bitte geben Sie Ihren Namen an." });
+        return;
+      }
+      if (!persons || persons < 1) {
+        setDialog({ open: true, kind: "warning", title: "Angaben fehlen", message: "Bitte geben Sie die Anzahl der Personen an." });
+        return;
+      }
+      if (!phone.trim() && !email.trim()) {
+        setDialog({ open: true, kind: "warning", title: "Angaben fehlen", message: "Bitte geben Sie Telefonnummer oder E‑Mail an." });
+        return;
+      }
       const [s, e] = normalizeRange(selection);
       // Prevent overlap
       const overlaps = reservations.some((r) =>
         isWithinInterval(s, { start: toDate(r.start), end: toDate(r.end) }) ||
         isWithinInterval(e, { start: toDate(r.start), end: toDate(r.end) })
       );
-      if (overlaps) return alert("Der Zeitraum überschneidet sich mit bestehenden Buchungen.");
+      if (overlaps) {
+        setDialog({ open: true, kind: "warning", title: "Zeitraum belegt", message: "Der Zeitraum überschneidet sich mit bestehenden Buchungen." });
+        return;
+      }
       setStatus("sending");
       setErrorMsg(null);
       const { nights, perNight, total } = computeCost(s, e);
@@ -140,16 +155,22 @@ export default function BookingCalendar() {
           } catch {}
           setSelection(null);
           setStatus("sent");
+          setDialog({ open: true, kind: "success", title: "Buchungsanfrage gesendet", message: "Vielen Dank! Wir melden uns schnellstmöglich." });
         })
         .catch((err) => {
           setStatus("error");
           setErrorMsg(err?.message ?? "Unbekannter Fehler");
+          setDialog({ open: true, kind: "error", title: "Fehler", message: err?.message ?? "Bitte versuchen Sie es erneut." });
         });
     }
   };
 
   const clearReservations = () => {
-    if (confirm("Alle Reservierungen entfernen?")) setReservations([]);
+    setConfirm({
+      open: true,
+      title: "Alle Reservierungen entfernen?",
+      message: "Diese Aktion kann nicht rückgängig gemacht werden.",
+    });
   };
 
   return (
@@ -273,6 +294,23 @@ export default function BookingCalendar() {
           ))}
         </ul>
       </div>
+      <ModalDialog
+        open={dialog.open}
+        kind={dialog.kind as any}
+        title={dialog.title}
+        message={dialog.message}
+        onClose={() => setDialog({ open: false })}
+      />
+      <ModalDialog
+        open={confirm.open}
+        kind="warning"
+        title={confirm.title}
+        message={confirm.message}
+        actions={[
+          { label: "Abbrechen", onClick: () => setConfirm({ open: false }), variant: "secondary" },
+          { label: "Ja, löschen", onClick: () => { setReservations([]); setConfirm({ open: false }); }, variant: "danger" },
+        ]}
+      />
     </div>
   );
 }

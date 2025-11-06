@@ -27,6 +27,20 @@ body {
   background-attachment: fixed;
 }
 
+/* Subtle page fade-in animation for main content (no transform to avoid fixed-position clipping) */
+@keyframes pageFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page-fade-in {
+  animation: pageFadeIn 240ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-fade-in { animation: none; }
+}
+
 /* React Calendar – bessere Lesbarkeit auf Glas-Hintergrund */
 .react-calendar {
   background-color: transparent !important;

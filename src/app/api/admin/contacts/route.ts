@@ -1,27 +1,21 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
-  const filePath = path.join(process.cwd(), "data", "contacts.json");
-  try {
-    try {
-      await fs.access(filePath);
-    } catch {
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, "[]", "utf-8");
-    }
-    const raw = await fs.readFile(filePath, "utf-8");
-    const contacts = (() => {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return [];
-      }
-    })();
-    return NextResponse.json({ contacts });
-  } catch (err) {
-    console.error("Read contacts failed:", err);
+  const sb = supabaseServer();
+  const { data, error } = await sb
+    .from("contacts")
+    .select("name,email,message,date")
+    .order("date", { ascending: false });
+  if (error) {
+    console.error("Supabase GET contacts error:", error);
     return NextResponse.json({ contacts: [] });
   }
+  const contacts = (data ?? []).map((r: any) => ({
+    name: r.name,
+    email: r.email,
+    message: r.message,
+    date: new Date(r.date ?? Date.now()).toISOString(),
+  }));
+  return NextResponse.json({ contacts });
 }

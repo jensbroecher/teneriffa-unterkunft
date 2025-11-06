@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function POST(req: NextRequest) {
   const payload = await req.json();
@@ -65,21 +64,25 @@ export async function POST(req: NextRequest) {
     console.log("BOOKING REQUEST (no mail configured):", payload);
   }
 
-  // Persist booking to server JSON file for admin area
+  // Persist booking to Supabase
   try {
-    const filePath = path.join(process.cwd(), "data", "bookings.json");
-    try {
-      await fs.access(filePath);
-    } catch {
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, "[]", "utf-8");
+    const sb = supabaseServer();
+    const { error } = await sb.from("bookings").insert({
+      name,
+      email,
+      phone,
+      persons: Number(persons),
+      start: new Date(start).toISOString(),
+      end: new Date(end).toISOString(),
+      nights: typeof nights === "number" ? nights : null,
+      per_night: typeof perNight === "number" ? perNight : null,
+      total: typeof total === "number" ? total : null,
+    });
+    if (error) {
+      console.error("Supabase insert booking failed:", error);
     }
-    const raw = await fs.readFile(filePath, "utf-8");
-    const list = (() => { try { return JSON.parse(raw); } catch { return []; } })();
-    list.push({ name, email, phone, persons, start, end });
-    await fs.writeFile(filePath, JSON.stringify(list, null, 2), "utf-8");
   } catch (err) {
-    console.error("Persist booking failed:", err);
+    console.error("Persist booking (Supabase) failed:", err);
   }
 
   return NextResponse.json({ ok: true });

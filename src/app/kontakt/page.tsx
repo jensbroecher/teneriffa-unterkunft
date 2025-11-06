@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import ModalDialog from "@/components/ModalDialog";
 
 export default function KontaktPage() {
   const [name, setName] = useState("");
@@ -7,6 +8,7 @@ export default function KontaktPage() {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,12 +22,14 @@ export default function KontaktPage() {
       });
       if (!res.ok) throw new Error("Fehler beim Senden");
       setStatus("sent");
+      setDialogOpen(true);
       setName("");
       setEmail("");
       setMessage("");
     } catch (err: any) {
       setStatus("error");
       setErrorMsg(err?.message ?? "Unbekannter Fehler");
+      setDialogOpen(true);
     }
   }
 
@@ -83,6 +87,16 @@ export default function KontaktPage() {
       <div className="rounded-xl border border-white/20 bg-white/40 backdrop-blur-lg p-4 text-sm text-zinc-700 shadow-md">
         Hinweis: Ihre Nachricht wird serverseitig als JSON gespeichert und im Adminbereich angezeigt.
       </div>
+      <ModalDialog
+        open={dialogOpen}
+        kind={status === "error" ? "error" : "success"}
+        title={status === "error" ? "Fehler beim Senden" : "Nachricht gesendet"}
+        message={status === "error" ? (errorMsg ?? "Bitte versuchen Sie es erneut.") : "Vielen Dank! Wir melden uns schnellstmöglich."}
+        onClose={() => {
+          setDialogOpen(false);
+          if (status !== "sending") setStatus("idle");
+        }}
+      />
     </div>
   );
 }

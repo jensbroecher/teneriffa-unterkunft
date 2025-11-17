@@ -16,6 +16,7 @@ type Booking = {
   end: string;
 };
 type Contact = {
+  id?: number | string;
   name: string;
   email: string;
   message: string;
@@ -110,6 +111,22 @@ export default function AdminPage() {
       });
       const data = await res.json();
       setUnavailable(data?.unavailable ?? unavailable);
+    } catch {}
+  };
+
+  const removeContact = async (c: Contact) => {
+    try {
+      const res = await fetch("/api/admin/contacts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          c.id != null
+            ? { id: c.id }
+            : { name: c.name, email: c.email, message: c.message, date: c.date }
+        ),
+      });
+      const data = await res.json();
+      setContacts(data?.contacts ?? contacts);
     } catch {}
   };
 
@@ -308,6 +325,14 @@ export default function AdminPage() {
                   <div className="text-xs text-zinc-600">Eingegangen am {new Date(c.date).toLocaleString()}</div>
                 )}
                 <div className="mt-1 whitespace-pre-wrap">{c.message}</div>
+                <div className="mt-2">
+                  <button
+                    className="rounded border border-white/40 bg-white/70 px-2 py-1 text-zinc-900 hover:bg-white/80"
+                    onClick={() => removeContact(c)}
+                  >
+                    Löschen
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
